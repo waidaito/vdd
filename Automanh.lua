@@ -4,7 +4,7 @@ local UIS = game:GetService("UserInputService")
 local tweenService = game:GetService("TweenService")
 
 local flySpeed = 400
-local p1, p2, p3 = Vector3.new(146.96, 3.30, -136.51), Vector3.new(2429.40, 3.35, -139.51), Vector3.new(2615.39, -2.70, 5.14)
+local p1, p2, p3 = Vector3.new(89.50, 3.40, -138.77), Vector3.new(2429.40, 3.35, -139.51), Vector3.new(2615.39, -2.70, 5.14)
 local isMoving, autoFarmEnabled = false, true
 local wasEnabledBeforeDeath = false
 
