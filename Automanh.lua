@@ -6,6 +6,13 @@ local tweenService = game:GetService("TweenService")
 local flySpeed = 400
 local p1, p2, p3 = Vector3.new(146.96, 3.30, -136.51), Vector3.new(2429.40, 3.35, -139.51), Vector3.new(2615.39, -2.70, 5.14)
 local isMoving, autoFarmEnabled = false, true
+local wasEnabledBeforeDeath = false
+
+local function SetAnchor(state)
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if root then root.Anchored = state end
+end
 
 local function CheckTsunami()
     local char = player.Character
@@ -48,20 +55,31 @@ end
 local function SmoothFly(targetPos)
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp or not isMoving or not hrp.Parent then return end
+    if not hrp or not autoFarmEnabled or not hrp.Parent then return end
+    
+    isMoving = true
+    SetAnchor(false)
     workspace.Gravity = 0
+    
     local noclipLoop = runService.Stepped:Connect(function()
         if char and hrp.Parent then SetNoclip() hrp.Velocity = Vector3.zero end
     end)
-    while isMoving and hrp.Parent do
+    
+    while autoFarmEnabled and hrp.Parent do
         local currentPos = hrp.Position
         if (targetPos - currentPos).Magnitude < 5 then break end
         local dt = runService.Heartbeat:Wait()
         hrp.CFrame = CFrame.new(currentPos + ((targetPos - currentPos).Unit * (flySpeed * dt)), targetPos)
     end
+    
     if noclipLoop then noclipLoop:Disconnect() end
-    if hrp and hrp.Parent then hrp.Velocity = Vector3.zero hrp.CFrame = CFrame.new(targetPos) end
+    if hrp and hrp.Parent then 
+        hrp.Velocity = Vector3.zero 
+        hrp.CFrame = CFrame.new(targetPos) 
+        if autoFarmEnabled then SetAnchor(true) end
+    end
     workspace.Gravity = 196.2
+    isMoving = false
 end
 
 local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
@@ -87,6 +105,12 @@ local Circle = Instance.new("Frame", ToggleBtn)
 Circle.Size, Circle.Position, Circle.BackgroundColor3 = UDim2.new(0, 18, 0, 18), UDim2.new(1, -21, 0.5, -9), Color3.new(1, 1, 1)
 Instance.new("UICorner", Circle).CornerRadius = UDim.new(1, 0)
 
+local function UpdateUI()
+    StatusLabel.Text = autoFarmEnabled and "STATUS: ON" or "STATUS: OFF"
+    tweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = autoFarmEnabled and Color3.fromRGB(60, 160, 60) or Color3.fromRGB(80, 80, 85)}):Play()
+    tweenService:Create(Circle, TweenInfo.new(0.2), {Position = autoFarmEnabled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)}):Play()
+end
+
 local dragging, dragStart, startPos
 Main.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true dragStart = input.Position startPos = Main.Position end
@@ -99,24 +123,27 @@ UIS.InputChanged:Connect(function(input)
 end)
 UIS.InputEnded:Connect(function(input) dragging = false end)
 
-local function MainLoop()
+function MainLoop()
     while autoFarmEnabled do
-        isMoving = true
         SmoothFly(p1)
         if not autoFarmEnabled then break end
         SmoothFly(p2)
         if not autoFarmEnabled then break end
-        if CheckTsunami() then repeat task.wait(0.5) until not CheckTsunami() or not autoFarmEnabled end
+        if CheckTsunami() then 
+            SetAnchor(true)
+            repeat task.wait(0.5) until not CheckTsunami() or not autoFarmEnabled 
+        end
         SmoothFly(p3)
         if not autoFarmEnabled then break end
-    
         local npcs = GetNearbyNPCs()
         for _, npcPos in ipairs(npcs) do
             if not autoFarmEnabled then break end
-            if CheckTsunami() then SmoothFly(p3) repeat task.wait(0.5) until not CheckTsunami() or not autoFarmEnabled end
+            if CheckTsunami() then 
+                SmoothFly(p3) 
+                repeat task.wait(0.5) until not CheckTsunami() or not autoFarmEnabled 
+            end
             SmoothFly(npcPos) task.wait(0.6)
         end
-    
         if not autoFarmEnabled then break end
         SmoothFly(p2)
         if not autoFarmEnabled then break end
@@ -125,25 +152,32 @@ local function MainLoop()
     end
 end
 
-local function UpdateUI()
-    StatusLabel.Text = autoFarmEnabled and "STATUS: ON" or "STATUS: OFF"
-    tweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = autoFarmEnabled and Color3.fromRGB(60, 160, 60) or Color3.fromRGB(80, 80, 85)}):Play()
-    tweenService:Create(Circle, TweenInfo.new(0.2), {Position = autoFarmEnabled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)}):Play()
-end
-
 ToggleBtn.MouseButton1Click:Connect(function()
     autoFarmEnabled = not autoFarmEnabled
     UpdateUI()
-    if autoFarmEnabled then task.spawn(MainLoop) else isMoving = false workspace.Gravity = 196.2 end
+    if autoFarmEnabled then 
+        task.spawn(MainLoop) 
+    else 
+        isMoving = false 
+        SetAnchor(false)
+        workspace.Gravity = 196.2 
+    end
 end)
 
 player.CharacterAdded:Connect(function()
-    workspace.Gravity = 196.2
+    wasEnabledBeforeDeath = autoFarmEnabled
+    autoFarmEnabled = false
     isMoving = false
-    if autoFarmEnabled then
+    workspace.Gravity = 196.2
+    UpdateUI()
+    
+    if wasEnabledBeforeDeath then
         task.wait(15)
-        if autoFarmEnabled then task.spawn(MainLoop) end
+        autoFarmEnabled = true
+        UpdateUI()
+        task.spawn(MainLoop)
     end
 end)
 
 task.spawn(MainLoop)
+if autoFarmEnabled then SetAnchor(true) end
