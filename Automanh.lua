@@ -172,7 +172,7 @@ player.CharacterAdded:Connect(function()
     UpdateUI()
     
     if wasEnabledBeforeDeath then
-        task.wait(15)
+        task.wait(6)
         autoFarmEnabled = true
         UpdateUI()
         task.spawn(MainLoop)
